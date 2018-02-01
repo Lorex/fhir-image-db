@@ -7,8 +7,10 @@
  * For more information on custom configuration, visit:
  * https://sailsjs.com/config/custom
  */
+const pkg = require("./../package.json");
 
 module.exports.custom = {
+	version: pkg.version,
 	baseUrl: 'http://image.xiakofin.com'
 	/***************************************************************************
 	 *                                                                          *
