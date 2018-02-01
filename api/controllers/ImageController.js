@@ -41,7 +41,7 @@ module.exports = {
 
 		const baseUrl = sails.config.custom.baseUrl;
 		const f = await file;
-		const filenameFull = f.fd.split('\\')[f.fd.split('\\').length - 1];
+		const filenameFull = f.fd.split('/')[f.fd.split('/').length - 1];
 
 		const fileName = filenameFull.split('.')[0];
 		const fileExtName = filenameFull.split('.')[1];
