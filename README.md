@@ -1,25 +1,39 @@
-# image-db
+# API 圖床系統
 
-a [Sails v1](https://sailsjs.com) application
-
-
-### Links
-
-+ [Get started](https://sailsjs.com/get-started)
-+ [Sails framework documentation](https://sailsjs.com/documentation)
-+ [Version notes / upgrading](https://sailsjs.com/documentation/upgrading)
-+ [Deployment tips](https://sailsjs.com/documentation/concepts/deployment)
-+ [Community support options](https://sailsjs.com/support)
-+ [Professional / enterprise options](https://sailsjs.com/enterprise)
+因為找不到現成簡單好用而且帶 API 的圖床系統，所以只好自己用 [Sails v1](https://sailsjs.com) 寫一個了 ˊ_>ˋ
+所以我說現在的圖床 GUI 做得這麼漂亮，然後沒有 API 讓我們串，叫我們開發者情何以堪 Orz......
 
 
-### Version info
+### 建置
++ 把 repo 抓下來
+```
+$ git clone https://github.com/Lorex/imageDB.git
+```
++ 安裝
+```
+$ npm i
+$ npm i -g sails@beta
+```
++執行
+```
+$ sails lift
+```
 
-This app was originally generated on Thu Feb 01 2018 18:26:04 GMT+0800 (台北標準時間) using Sails v1.0.0-45 _(internally: [`sails-generate@1.15.4`](https://github.com/balderdashy/sails-generate/tree/v1.15.4/lib/core-generators/new))_.
-
-
-
-<!--
-Note:  Generators are usually run using the globally-installed `sails` CLI (command-line interface).  This CLI version is _environment-specific_ rather than app-specific, thus over time, as a project's dependencies are upgraded or the project is worked on by different developers on different computers using different versions of Node.js, the Sails dependency in its package.json file may differ from the globally-installed Sails CLI release it was originally generated with.  (Be sure to always check out the relevant [upgrading guides](https://sailsjs.com/upgrading) before upgrading the version of Sails used by your app.  If you're stuck, [get help here](https://sailsjs.com/support).)
--->
+### 使用方式
++ 測試連線
+```
+GET /
+```
++ 上傳圖片
+```
+POST /upload
+```
++ 刪除圖片
+```
+DELETE /delete/:pid
+```
++ 刪除所有圖片
+```
+DELETE /purge
+```
 
