@@ -5,7 +5,7 @@ RUN mkdir -p /usr/src/app
 WORKDIR /usr/src/app
 
 # Install app dependencies
-# RUN npm i -g sails
+RUN npm i -g sails
 
 ADD package.json /usr/src/app/
 RUN npm install --quiet
