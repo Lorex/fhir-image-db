@@ -20,7 +20,7 @@ node {
         sh "echo JOB_NAME: $JOB_NAME"
         sh "ssh -oStrictHostKeyChecking=no -i '/data/deploy_rsa.pem' deploy@13.114.131.241 '\
             docker rm -f $project_name; \
-            docker run -d --restart=always --name $project_name -p 2893:1337 172.31.17.15:5000/$project_name npm run start; \
+            docker run -d --restart=always -v /data/images:/usr/src/app/assets/images --name $project_name -p 2893:1337 172.31.17.15:5000/$project_name npm run start; \
         '"
     }
 
