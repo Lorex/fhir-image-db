@@ -68,7 +68,7 @@ module.exports = {
       }
 
       // 取得檔案資訊
-      const baseUrl = sails.config.custom.baseUrl;
+      const apiBaseUrl = sails.config.custom.apiBaseUrl;
       const filenameFull = path.basename(file.fd);
       const { name: fileName, ext: fileExt } = path.parse(filenameFull);
       const fileExtName = fileExt.slice(1); // 移除點號
@@ -79,8 +79,8 @@ module.exports = {
         size: file.size,
         path: `/images/${filenameFull}`,
         timestamp: Date.now(),
-        url: `${baseUrl}/images/${filenameFull}`,
-        delete: `${baseUrl}/delete/${fileName}_${fileExtName}`
+        url: `${apiBaseUrl}/images/${filenameFull}`,
+        delete: `${apiBaseUrl}/delete/${fileName}_${fileExtName}`
       });
 
     } catch (err) {

@@ -9,7 +9,8 @@
  */
 
 module.exports.custom = {
-  baseUrl: 'http://image.xiakofin.com'
+  apiBaseUrl: 'https://hah.imagedb.fhir.tw', // 本圖床 API 伺服器網址
+  fhirServerUrl: 'https://hah.hapi.fhir.tw/fhir', // FHIR 伺服器網址
   /***************************************************************************
 	 *                                                                          *
 	 * Any other custom config this Sails app should use during development.    *
