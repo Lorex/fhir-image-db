@@ -5,7 +5,7 @@ const assert = require('assert');
 const sinon = require('sinon');
 const axios = require('axios');
 
-describe('ImageController', () => {
+describe('ImageController (圖片控制器)', () => {
 
   let sandbox;
   let imageDir;
@@ -28,9 +28,9 @@ describe('ImageController', () => {
     }
   });
 
-  describe('POST /upload', () => {
+  describe('POST /upload (上傳圖片)', () => {
 
-    it('should upload image, create a thumbnail, and create a FHIR DocumentReference', async () => {
+    it('應該要能成功上傳圖片、建立縮圖，並建立一個 FHIR DocumentReference', async () => {
       const testImagePath = path.join(__dirname, '../fixtures/test-image.png');
       const fhirId = '12345';
       const patientId = 'patient1';
@@ -62,9 +62,64 @@ describe('ImageController', () => {
       assert.strictEqual(sentDocRef.content[0].attachment.title, 'full-image', 'First content entry should be full-image');
       assert.strictEqual(sentDocRef.content[1].attachment.title, 'thumbnail', 'Second content entry should be thumbnail');
     });
+
+    it('若未提供 patientId，建立的 DocumentReference 中不應包含 subject 欄位', async () => {
+      const testImagePath = path.join(__dirname, '../fixtures/test-image.png');
+      const fhirId = '12345';
+      const practitionerId = 'practitioner1';
+
+      const mockFhirResponse = { resourceType: 'DocumentReference', id: fhirId };
+      const axiosStub = sandbox.stub(axios, 'post').resolves({ status: 201, data: mockFhirResponse });
+
+      await supertest(sails.hooks.http.app)
+        .post('/upload')
+        .field('practitionerId', practitionerId)
+        .attach('image', testImagePath)
+        .expect(200);
+
+      const sentDocRef = axiosStub.getCall(0).args[1];
+      assert.strictEqual(sentDocRef.subject, undefined, 'DocumentReference should not have a subject');
+      assert.deepStrictEqual(sentDocRef.author, [{ reference: `Practitioner/${practitionerId}` }], 'DocumentReference has incorrect author');
+    });
+
+    it('若未提供 practitionerId，建立的 DocumentReference 中不應包含 author 欄位', async () => {
+      const testImagePath = path.join(__dirname, '../fixtures/test-image.png');
+      const fhirId = '12345';
+      const patientId = 'patient1';
+
+      const mockFhirResponse = { resourceType: 'DocumentReference', id: fhirId };
+      const axiosStub = sandbox.stub(axios, 'post').resolves({ status: 201, data: mockFhirResponse });
+
+      await supertest(sails.hooks.http.app)
+        .post('/upload')
+        .field('patientId', patientId)
+        .attach('image', testImagePath)
+        .expect(200);
+
+      const sentDocRef = axiosStub.getCall(0).args[1];
+      assert.strictEqual(sentDocRef.author, undefined, 'DocumentReference should not have an author');
+      assert.deepStrictEqual(sentDocRef.subject, { reference: `Patient/${patientId}` }, 'DocumentReference has incorrect subject');
+    });
+
+    it('若兩者皆未提供，則建立的 DocumentReference 中不應包含 subject 和 author 欄位', async () => {
+      const testImagePath = path.join(__dirname, '../fixtures/test-image.png');
+      const fhirId = '12345';
+
+      const mockFhirResponse = { resourceType: 'DocumentReference', id: fhirId };
+      const axiosStub = sandbox.stub(axios, 'post').resolves({ status: 201, data: mockFhirResponse });
+
+      await supertest(sails.hooks.http.app)
+        .post('/upload')
+        .attach('image', testImagePath)
+        .expect(200);
+
+      const sentDocRef = axiosStub.getCall(0).args[1];
+      assert.strictEqual(sentDocRef.subject, undefined, 'DocumentReference should not have a subject');
+      assert.strictEqual(sentDocRef.author, undefined, 'DocumentReference should not have an author');
+    });
   });
 
-  describe('DELETE /delete/:id', () => {
+  describe('DELETE /delete/:id (刪除指定圖片)', () => {
 
     const fhirId = 'test-fhir-id';
     const originalFilename = 'test-image.png';
@@ -77,7 +132,7 @@ describe('ImageController', () => {
       fs.copyFileSync(testImagePath, path.join(imageDir, thumbFilename));
     });
 
-    it('should delete original image, thumbnail, and FHIR resource successfully', async () => {
+    it('應該要能成功刪除原始圖片、縮圖以及對應的 FHIR 資源', async () => {
       const mockFhirResponseOnGet = {
         resourceType: 'DocumentReference',
         id: fhirId,
@@ -100,8 +155,8 @@ describe('ImageController', () => {
     });
   });
 
-  describe('DELETE /purge', () => {
-    it('should purge all uploaded images successfully', async () => {
+  describe('DELETE /purge (清除所有圖片)', () => {
+    it('應該要能成功清除所有已上傳的圖片', async () => {
       const testImagePath = path.join(__dirname, '../fixtures/test-image.png');
       const destImagePath = path.join(imageDir, path.basename(testImagePath));
       fs.copyFileSync(testImagePath, destImagePath);

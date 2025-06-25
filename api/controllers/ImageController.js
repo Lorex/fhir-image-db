@@ -26,16 +26,6 @@ module.exports = {
     try {
       const { patientId, practitionerId } = req.body;
 
-      if (!patientId || !practitionerId) {
-        return res.badRequest({
-          success: false,
-          err: {
-            code: 'E_MISSING_PARAMETERS',
-            message: '缺少 patientId 或 practitionerId 參數'
-          }
-        });
-      }
-
       // 使用 skipper 的 upload 方法處理檔案上傳
       const uploadedFiles = await new Promise((resolve, reject) => {
         req.file('image').upload({ maxBytes: 1073741824 }, (err, files) => {
@@ -120,14 +110,6 @@ module.exports = {
             }
           ]
         },
-        subject: {
-          reference: `Patient/${patientId}`
-        },
-        author: [
-          {
-            reference: `Practitioner/${practitionerId}`
-          }
-        ],
         content: [
           {
             attachment: {
@@ -148,6 +130,14 @@ module.exports = {
           }
         ]
       };
+
+      if (patientId) {
+        documentReference.subject = { reference: `Patient/${patientId}` };
+      }
+
+      if (practitionerId) {
+        documentReference.author = [{ reference: `Practitioner/${practitionerId}` }];
+      }
 
       let fhirResponse = {};
       try {

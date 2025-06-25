@@ -1,6 +1,6 @@
 # 測試文件
 
-這個目錄包含了 imageDB API 的完整測試套件，使用 Sails.js 推薦的測試框架。
+這個目錄包含了 FHIR Image DB API 的完整測試套件，使用 Sails.js 推薦的測試框架。
 
 ## 測試結構
 

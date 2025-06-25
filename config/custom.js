@@ -9,7 +9,7 @@
  */
 
 module.exports.custom = {
-  apiBaseUrl: 'https://hah.imagedb.fhir.tw', // 本圖床 API 伺服器網址
+  apiBaseUrl: 'https://hah.FHIR Image DB.fhir.tw', // 本圖床 API 伺服器網址
   fhirServerUrl: 'https://hah.hapi.fhir.tw/fhir', // FHIR 伺服器網址
   /***************************************************************************
 	 *                                                                          *

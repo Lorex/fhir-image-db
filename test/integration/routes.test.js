@@ -1,10 +1,10 @@
 const supertest = require('supertest');
 
-describe('API Routes', () => {
+describe('API 路由', () => {
 
-  describe('GET /', () => {
+  describe('GET / (根目錄)', () => {
 
-    it('should respond with 200 status for root endpoint', (done) => {
+    it('根目錄端點應該要能回傳 200 狀態碼', (done) => {
       supertest(sails.hooks.http.app)
         .get('/')
         .expect(200)
@@ -13,9 +13,9 @@ describe('API Routes', () => {
 
   });
 
-  describe('Route Configuration', () => {
+  describe('路由設定', () => {
 
-    it('should handle CORS preflight requests', (done) => {
+    it('應該要能處理 CORS preflight 請求', (done) => {
       supertest(sails.hooks.http.app)
         .options('/upload')
         .expect((res) => {
@@ -27,7 +27,7 @@ describe('API Routes', () => {
         .end(done);
     });
 
-    it('should respond to valid endpoints', (done) => {
+    it('應該要能回應有效的端點', (done) => {
       supertest(sails.hooks.http.app)
         .post('/upload')
         .expect((res) => {
@@ -41,9 +41,9 @@ describe('API Routes', () => {
 
   });
 
-  describe('Error Handling', () => {
+  describe('錯誤處理', () => {
 
-    it('should return proper error format', (done) => {
+    it('應該要能回傳正確的錯誤格式', (done) => {
       supertest(sails.hooks.http.app)
         .post('/upload')
         .expect(400)

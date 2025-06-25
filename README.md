@@ -1,81 +1,139 @@
-# API 圖床系統
+# FHIR Image DB
 
-因為找不到現成簡單好用而且帶 API 的圖床系統，所以只好自己用 [Sails v1](https://sailsjs.com) 寫一個了 ˊ_>ˋ
-所以我說現在的圖床 GUI 做得這麼漂亮，然後沒有 API 讓我們串，叫我們開發者情何以堪 Orz......
+`image-db-fhir` 是一個基於 Sails.js 框架開發的圖片儲存與管理服務。它提供了一套完整的 API，讓您可以上傳、刪除圖片，並將圖片資訊與 [FHIR](https://www.hl7.org/fhir/) (Fast Healthcare Interoperability Resources) 伺服器進行深度整合。
 
-## 環境需求
+## 核心功能
 
-- **Node.js**: 20.x 或更高版本
-- **Yarn**: v1.22.19
-- **Sails.js**: v1.5.4
+### 1. 圖片上傳與縮圖
 
-## 快速安裝
+*   **多格式支援**：可上傳 `jpeg`, `png`, `gif`, `webp` 等多種常見圖片格式。
+*   **自動產生縮圖**：每當一張新圖片上傳成功，系統會自動使用 `sharp` 函式庫產生一張 `128x128` 像素的縮圖，並與原始圖片一同儲存。
+*   **API 回應**：成功上傳後，API 會回傳一個 JSON 物件，其中同時包含了原始圖片與縮圖的相對路徑 (`path` 和 `path-thumbnail`) 及公開存取 URL。
 
-### 方法一：使用安裝腳本（推薦）
-```bash
-# 克隆專案
-git clone https://github.com/Lorex/imageDB.git
-cd imageDB
+### 2. FHIR DocumentReference 整合
 
-# 執行安裝腳本
-./install.sh
-```
+本專案最核心的功能是與 FHIR 伺服器的無縫整合。
 
-### 方法二：手動安裝
-```bash
-# 克隆專案
-git clone https://github.com/Lorex/imageDB.git
-cd imageDB
+*   **自動建立資源**：上傳圖片後，系統會自動在指定的 FHIR 伺服器上建立一個 `DocumentReference` 資源。
+*   **雙內容附件**：這個 `DocumentReference` 的 `content` 陣列會包含兩個 `attachment`：
+    1.  `content[0]`：指向原始圖片 (title: "full-image")。
+    2.  `content[1]`：指向自動產生的縮圖 (title: "thumbnail")。
+*   **關聯病患與操作人員 (選擇性)**：
+    *   如果在上傳時提供了 `patientId`，它將被加到 `DocumentReference.subject` 欄位。
+    *   如果在上傳時提供了 `practitionerId`，它將被加到 `DocumentReference.author` 欄位。
+    *   如果未提供，對應的欄位將不會出現在 `DocumentReference` 中。
 
-# 安裝 yarn（如果尚未安裝）
-npm install -g yarn@1.22.19
+### 3. 資源同步刪除
 
-# 安裝依賴
-yarn install
+*   **原子化操作**：透過 `DELETE /delete/:id` 端點，您可以使用 FHIR `DocumentReference` 的 ID，一次性地從本地檔案系統刪除原始圖片和縮圖，並同時向 FHIR 伺服器請求刪除對應的 `DocumentReference` 資源，確保資料的一致性。
 
-# 安裝 sails 全域
-yarn global add sails@beta
-```
+## 技術棧
 
-## 啟動應用程式
+*   **後端框架**：[Sails.js](https://sailsjs.com/)
+*   **圖片處理**：[sharp](https://sharp.pixelplumbing.com/)
+*   **HTTP 客戶端**：[axios](https://axios-http.com/)
+*   **測試框架**：[Mocha](https://mochajs.org/), [Supertest](https://github.com/visionmedia/supertest), [Sinon](https://sinonjs.org/)
 
-```bash
-# 使用 sails 啟動
-sails lift
+## 環境設定
 
-# 或使用 yarn 啟動
-yarn start
-```
+在啟動應用程式之前，您需要在 `config/custom.js` 檔案中或透過環境變數設定以下兩個參數：
+
+*   `sails.config.custom.apiBaseUrl`：本圖床 API 伺服器的公開網址 (例如：`https://your-imagedb.example.com`)。
+*   `sails.config.custom.fhirServerUrl`：您的 FHIR 伺服器網址 (例如：`https://your-fhir-server.example.com/fhir`)。
 
 ## API 端點
 
-### 測試連線
-```
-GET /
+### `POST /upload`
+
+上傳一張新的圖片，並建立對應的 FHIR DocumentReference。
+
+**Request Body (form-data):**
+
+| Key              | Type   | Description                |
+| ---------------- | ------ | -------------------------- |
+| `image`          | File   | **(必要)** 要上傳的圖片檔案。         |
+| `patientId`      | String | (選擇性) 病患的 ID。                |
+| `practitionerId` | String | (選擇性) 操作人員 (醫師、護理師) 的 ID。 |
+
+**Success Response (200 OK):**
+
+```json
+{
+  "filename": "...",
+  "size": 12345,
+  "path": "/images/...",
+  "path-thumbnail": "/images/..._thumb.png",
+  "timestamp": 1678886400000,
+  "url": "https://.../images/...",
+  "delete": "https://.../delete/FHIR_ID",
+  "fhir": { ... } // 從 FHIR 伺服器回傳的 DocumentReference 資源
+}
 ```
 
-### 上傳圖片
-```
-POST /upload
-Content-Type: multipart/form-data
-Body: image (檔案)
+### `DELETE /delete/:id`
+
+根據 FHIR `DocumentReference` 的 ID，刪除指定的圖片、縮圖以及 FHIR 資源。
+
+**URL Parameters:**
+
+| Key  | Type   | Description                   |
+| ---- | ------ | ----------------------------- |
+| `id` | String | FHIR `DocumentReference` 的 ID。 |
+
+**Success Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "message": "檔案及對應的 FHIR DocumentReference 已成功刪除"
+}
 ```
 
-### 刪除圖片
-```
-DELETE /delete/:pid
+### `DELETE /purge`
+
+清除所有已上傳的圖片。**注意：這是一個危險的操作，主要用於測試環境。**
+
+**Success Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "message": "所有檔案已成功刪除"
+}
 ```
 
-### 刪除所有圖片
+## 安裝與啟動
+
+1.  **安裝依賴套件:**
+
+    ```bash
+    yarn install
+    ```
+
+2.  **啟動應用程式 (開發模式):**
+
+    ```bash
+    sails lift
+    ```
+
+3.  **啟動應用程式 (正式環境):**
+
+    ```bash
+    yarn start
+    ```
+
+## 測試
+
+本專案使用 Mocha 進行整合測試。若要執行測試，請運行以下指令：
+
+```bash
+yarn test
 ```
-DELETE /purge
+
+## Linting
+
+本專案使用 ESLint 來確保程式碼品質。若要執行 Linting，請運行以下指令：
+
+```bash
+yarn lint
 ```
-
-## 更新日誌
-
-### v1.0.1
-- 升級至 Node.js 20
-- 改用 Yarn v1 套件管理
-- 更新所有依賴套件至最新版本
-- 改善錯誤處理和程式碼品質
-
