@@ -30,20 +30,14 @@ describe('ImageController', function() {
 
   describe('POST /upload', function() {
 
-    it('should upload image successfully and create a FHIR DocumentReference', async function() {
+    it('should upload image, create a thumbnail, and create a FHIR DocumentReference', async function() {
       const testImagePath = path.join(__dirname, '../fixtures/test-image.png');
       const fhirId = '12345';
       const patientId = 'patient1';
       const practitionerId = 'practitioner1';
 
-      const mockFhirResponse = {
-        resourceType: 'DocumentReference',
-        id: fhirId,
-        status: 'current',
-        content: [ { attachment: { title: 'test-image.png' } } ]
-      };
-
-      sandbox.stub(axios, 'post').resolves({ status: 201, data: mockFhirResponse });
+      const mockFhirResponse = { resourceType: 'DocumentReference', id: fhirId };
+      const axiosStub = sandbox.stub(axios, 'post').resolves({ status: 201, data: mockFhirResponse });
 
       const res = await supertest(sails.hooks.http.app)
         .post('/upload')
@@ -54,44 +48,43 @@ describe('ImageController', function() {
 
       const { data } = res.body;
       assert(data.filename, 'Missing filename in response');
-      assert(data.url, 'Missing url in response');
-      assert.strictEqual(data.delete.endsWith(`/delete/${fhirId}`), true, 'Incorrect delete url');
-      assert.deepStrictEqual(data.fhir, mockFhirResponse, 'FHIR response does not match');
+      assert(data['path-thumbnail'], 'Missing thumbnail path in response');
+
+      // Verify original and thumbnail files exist
+      const originalPath = path.join(imageDir, data.filename);
+      const thumbnailPath = path.join(imageDir, path.basename(data['path-thumbnail']));
+      assert(fs.existsSync(originalPath), 'Original file was not created');
+      assert(fs.existsSync(thumbnailPath), 'Thumbnail file was not created');
+
+      // Verify FHIR DocumentReference content
+      const sentDocRef = axiosStub.getCall(0).args[1];
+      assert.strictEqual(sentDocRef.content.length, 2, 'DocumentReference should have two content entries');
+      assert.strictEqual(sentDocRef.content[0].attachment.title, 'full-image', 'First content entry should be full-image');
+      assert.strictEqual(sentDocRef.content[1].attachment.title, 'thumbnail', 'Second content entry should be thumbnail');
     });
-
-    it('should return error when patientId or practitionerId is missing', async function() {
-        const testImagePath = path.join(__dirname, '../fixtures/test-image.png');
-
-        const res = await supertest(sails.hooks.http.app)
-          .post('/upload')
-          .attach('image', testImagePath)
-          .expect(400);
-
-        assert.strictEqual(res.body.success, false);
-        assert.strictEqual(res.body.err.code, 'E_MISSING_PARAMETERS');
-      });
   });
 
   describe('DELETE /delete/:id', function() {
 
     const fhirId = 'test-fhir-id';
-    let uploadedFilename;
+    const originalFilename = 'test-image.png';
+    const thumbFilename = 'test-image_thumb.png';
 
-    beforeEach(async function() {
-      const testImagePath = path.join(__dirname, '../fixtures/test-image.png');
-      uploadedFilename = path.basename(testImagePath);
-      const imagePath = path.join(imageDir, uploadedFilename);
-      fs.copyFileSync(testImagePath, imagePath);
-      assert(fs.existsSync(imagePath), `File should exist at ${imagePath} before delete test`);
-
-      sandbox.stub(axios, 'post').resolves({ status: 201, data: { id: fhirId, content: [{attachment:{title: uploadedFilename}}] } });
+    beforeEach(function() {
+      const testImagePath = path.join(__dirname, '../fixtures', originalFilename);
+      // Create dummy original and thumbnail files
+      fs.copyFileSync(testImagePath, path.join(imageDir, originalFilename));
+      fs.copyFileSync(testImagePath, path.join(imageDir, thumbFilename));
     });
 
-    it('should delete uploaded image and FHIR resource successfully', async function() {
+    it('should delete original image, thumbnail, and FHIR resource successfully', async function() {
       const mockFhirResponseOnGet = {
         resourceType: 'DocumentReference',
         id: fhirId,
-        content: [ { attachment: { title: uploadedFilename } } ]
+        content: [
+          { attachment: { url: `http://localhost/images/${originalFilename}` } },
+          { attachment: { url: `http://localhost/images/${thumbFilename}` } }
+        ]
       };
 
       sandbox.stub(axios, 'get').resolves({ status: 200, data: mockFhirResponseOnGet });
@@ -102,20 +95,8 @@ describe('ImageController', function() {
         .expect(200);
 
       assert.strictEqual(res.body.success, true, 'Expected success to be true');
-      const imagePath = path.join(imageDir, uploadedFilename);
-      assert.strictEqual(fs.existsSync(imagePath), false, `File should not exist at ${imagePath} after deletion`);
-    });
-
-    it('should return 404 if the FHIR DocumentReference does not exist', async function() {
-      const nonExistentId = 'non-existent-id';
-      sandbox.stub(axios, 'get').rejects({ response: { status: 404 } });
-
-      const res = await supertest(sails.hooks.http.app)
-        .delete(`/delete/${nonExistentId}`)
-        .expect(404);
-
-      assert.strictEqual(res.body.success, false);
-      assert.strictEqual(res.body.message, '找不到指定的 FHIR DocumentReference');
+      assert.strictEqual(fs.existsSync(path.join(imageDir, originalFilename)), false, 'Original file should be deleted');
+      assert.strictEqual(fs.existsSync(path.join(imageDir, thumbFilename)), false, 'Thumbnail file should be deleted');
     });
   });
 

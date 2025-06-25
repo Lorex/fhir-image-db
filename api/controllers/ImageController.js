@@ -8,8 +8,8 @@
 const fs = require('fs');
 const path = require('path');
 const { promisify } = require('util');
-const { rimraf } = require('rimraf');
 const axios = require('axios');
+const sharp = require('sharp');
 
 // 將 fs.unlink 轉換為 Promise 版本
 const unlinkAsync = promisify(fs.unlink);
@@ -36,21 +36,15 @@ module.exports = {
         });
       }
 
-      // 使用 Promise 包裝 Sails 的檔案上傳功能
+      // 使用 skipper 的 upload 方法處理檔案上傳
       const uploadedFiles = await new Promise((resolve, reject) => {
-        req.file('image').upload({
-          dirname: path.resolve(sails.config.appPath, 'assets/images'),
-          maxBytes: 100000000 // 100MB
-        }, (err, files) => {
-          if (err) {
-            return reject(err);
-          }
-          resolve(files);
+        req.file('image').upload({ maxBytes: 1073741824 }, (err, files) => {
+          if (err) { return reject(err); }
+          return resolve(files);
         });
       });
 
-      // 檢查是否有檔案被上傳
-      if (!uploadedFiles || uploadedFiles.length === 0) {
+      if (uploadedFiles.length === 0) {
         return res.badRequest({
           success: false,
           err: {
@@ -60,17 +54,29 @@ module.exports = {
         });
       }
 
-      const file = uploadedFiles[0];
+      const fileBuffer = fs.readFileSync(uploadedFiles[0].fd);
 
-      // 驗證檔案類型
-      if (!file.type.includes('image')) {
-        // 使用異步方式刪除無效檔案
-        try {
-          await unlinkAsync(file.fd);
-        } catch (unlinkErr) {
-          sails.log.warn('Failed to delete invalid file:', unlinkErr);
-        }
+      // 檢查是否有檔案被上傳
+      if (!fileBuffer || fileBuffer.length === 0) {
+        return res.badRequest({
+          success: false,
+          err: {
+            code: 'E_NO_FILE',
+            message: '沒有上傳檔案'
+          }
+        });
+      }
 
+      // 驗證檔案類型 (從 buffer 中讀取 magic numbers)
+      let metadata;
+      try {
+        metadata = await sharp(fileBuffer).metadata();
+      } catch (e) {
+        return res.badRequest({ success: false, err: { code: 'E_TYPE', message: '無法識別的圖片格式' } });
+      }
+      
+      const imageType = metadata.format;
+      if (!['jpeg', 'png', 'gif', 'webp'].includes(imageType)) {
         return res.badRequest({
           success: false,
           err: {
@@ -83,8 +89,21 @@ module.exports = {
       // 取得檔案資訊
       const apiBaseUrl = sails.config.custom.apiBaseUrl;
       const fhirServerUrl = sails.config.custom.fhirServerUrl;
-      const filenameFull = path.basename(file.fd);
+      const uniqueId = require('crypto').randomBytes(8).toString('hex');
+      const filenameFull = `${uniqueId}.${imageType}`;
+      const { name: fileName, ext: fileExt } = path.parse(filenameFull);
+      const imagePath = path.resolve(sails.config.appPath, 'assets/images', filenameFull);
       const imageUrl = `${apiBaseUrl}/images/${filenameFull}`;
+
+      // 產生縮圖
+      const thumbnailFilename = `${fileName}_thumb${fileExt}`;
+      const thumbnailPath = path.resolve(sails.config.appPath, 'assets/images', thumbnailFilename);
+      const thumbnailUrl = `${apiBaseUrl}/images/${thumbnailFilename}`;
+
+      // 將原始圖和縮圖寫入檔案系統
+      const originalImage = sharp(fileBuffer);
+      await originalImage.toFile(imagePath);
+      await originalImage.resize(128, 128).toFile(thumbnailPath);
 
       // 建立 FHIR DocumentReference
       const documentReference = {
@@ -112,10 +131,18 @@ module.exports = {
         content: [
           {
             attachment: {
-              contentType: file.type,
+              contentType: `image/${imageType}`,
               url: imageUrl,
-              size: file.size,
-              title: filenameFull,
+              size: metadata.size,
+              title: 'full-image',
+              creation: new Date().toISOString()
+            }
+          },
+          {
+            attachment: {
+              contentType: `image/${imageType}`,
+              url: thumbnailUrl,
+              title: 'thumbnail',
               creation: new Date().toISOString()
             }
           }
@@ -136,8 +163,9 @@ module.exports = {
       // 回傳成功響應
       return res.ok({
         filename: filenameFull,
-        size: file.size,
+        size: metadata.size,
         path: `/images/${filenameFull}`,
+        'path-thumbnail': `/images/${thumbnailFilename}`,
         timestamp: Date.now(),
         url: imageUrl,
         delete: `${apiBaseUrl}/delete/${fhirResponse.id}`,
@@ -192,17 +220,19 @@ module.exports = {
         // 即使刪除失敗，我們還是繼續嘗試刪除本地檔案
       }
 
-      // 3. 刪除本地圖片檔案
+      // 3. 刪除本地圖片檔案 (原始圖 + 縮圖)
       try {
-        const filenameFull = docRef.content[0].attachment.title;
-        if (filenameFull) {
-          const filePath = path.join(sails.config.appPath, 'assets/images', filenameFull);
-          await unlinkAsync(filePath);
+        for (const content of docRef.content) {
+          const fileUrl = content.attachment.url;
+          const filename = path.basename(fileUrl);
+          const filePath = path.join(sails.config.appPath, 'assets/images', filename);
+          if (fs.existsSync(filePath)) {
+            await unlinkAsync(filePath);
+          }
         }
       } catch (err) {
-          sails.log.error('File deletion error:', err);
-          // 如果檔案刪除失敗，可能需要手動介入，但主要資源已在 FHIR server 上刪除
-          return res.serverError({ success: false, message: '檔案刪除失敗，但 FHIR 資源可能已被刪除' });
+        sails.log.error('File deletion error:', err);
+        return res.serverError({ success: false, message: '檔案刪除失敗，但 FHIR 資源可能已被刪除' });
       }
 
       return res.ok({

@@ -12,6 +12,8 @@
     "sails": "^1.5.4",
     "sails-hook-orm": "^4.0.3",
     "sails-hook-sockets": "^3.0.2",
+    "sharp": "^0.34.2",
+    "skipper-memory": "^0.0.3",
     "socket.io-adapter": "^2.5.4"
   },
   "devDependencies": {
