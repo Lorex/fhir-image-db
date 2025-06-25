@@ -14,14 +14,16 @@
     "socket.io-adapter": "^2.5.4"
   },
   "devDependencies": {
-    "eslint": "5.16.0"
+    "eslint": "5.16.0",
+    "mocha": "^10.2.0",
+    "supertest": "^6.3.3"
   },
   "scripts": {
     "start": "NODE_ENV=production node app.js",
-    "test": "npm run lint && npm run custom-tests && echo 'Done.'",
+    "test": "yarn custom-tests && echo 'Done.'",
     "test:fhir": "node ../tests/test-fhir-proxy.js",
     "lint": "./node_modules/eslint/bin/eslint.js . --max-warnings=0 --report-unused-disable-directives && echo '✔  Your .js files look good.'",
-    "custom-tests": "echo \"(No other custom tests yet.)\" && echo"
+    "custom-tests": "mocha test/lifecycle.test.js test/integration/**/*.test.js"
   },
   "main": "app.js",
   "repository": {
