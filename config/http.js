@@ -35,10 +35,46 @@ module.exports.http = {
       'bodyParser',
       'compress',
       'poweredBy',
+      'imagesStatic',
       'router',
       'www',
       'favicon',
     ],
+
+    /***************************************************************************
+    *                                                                          *
+    * Static file middleware for /images/* routes                              *
+    *                                                                          *
+    ***************************************************************************/
+    imagesStatic: (req, res, next) => {
+      const express = require('express');
+      const path = require('path');
+
+      // Only handle requests that start with /images/
+      if (req.url.startsWith('/images/')) {
+        const assetsPath = path.join(__dirname, '..', 'assets', 'images');
+        const staticMiddleware = express.static(assetsPath, {
+          setHeaders: (res) => {
+            // Set cache headers for images
+            res.setHeader('Cache-Control', 'public, max-age=86400');
+          }
+        });
+
+        // Remove /images prefix from the URL for the static middleware
+        const originalUrl = req.url;
+        req.url = req.url.replace('/images', '');
+
+        return staticMiddleware(req, res, (err) => {
+          // Restore original URL
+          req.url = originalUrl;
+          if (err) {
+            return next(err);
+          }
+          return next();
+        });
+      }
+      return next();
+    },
 
 
     /***************************************************************************
@@ -49,9 +85,9 @@ module.exports.http = {
     *                                                                          *
     ***************************************************************************/
 
-    bodyParser: (function _configureBodyParser(){
-      var skipper = require('skipper');
-      var middlewareFn = skipper({ strict: true });
+    bodyParser: (() => {
+      const skipper = require('skipper');
+      const middlewareFn = skipper({ strict: true });
       return middlewareFn;
     })(),
 
