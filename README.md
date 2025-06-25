@@ -27,7 +27,7 @@
 
 *   **原子化操作**：透過 `DELETE /delete/:id` 端點，您可以使用 FHIR `DocumentReference` 的 ID，一次性地從本地檔案系統刪除原始圖片和縮圖，並同時向 FHIR 伺服器請求刪除對應的 `DocumentReference` 資源，確保資料的一致性。
 
-## 技術棧
+## 技術堆疊
 
 *   **後端框架**：[Sails.js](https://sailsjs.com/)
 *   **圖片處理**：[sharp](https://sharp.pixelplumbing.com/)
@@ -40,6 +40,26 @@
 
 *   `sails.config.custom.apiBaseUrl`：本圖床 API 伺服器的公開網址 (例如：`https://your-imagedb.example.com`)。
 *   `sails.config.custom.fhirServerUrl`：您的 FHIR 伺服器網址 (例如：`https://your-fhir-server.example.com/fhir`)。
+
+### 正式環境配置
+
+⚠️ **重要提醒**：在正式環境部署時，請務必修改 `config/env/production.js` 檔案中的相關設定：
+
+```javascript
+// config/env/production.js
+module.exports = {
+  custom: {
+    // 修改為您的正式環境網址
+    apiBaseUrl: 'https://your-production-domain.com',
+    fhirServerUrl: 'https://your-production-fhir-server.com/fhir',
+  },
+};
+```
+
+**注意事項：**
+- 此檔案中的設定會覆蓋 `config/custom.js` 中的預設值
+- 請根據您的實際部署環境修改 `apiBaseUrl` 和 `fhirServerUrl`
+- 建議使用環境變數來管理敏感資訊
 
 ## API 端點
 
