@@ -5,11 +5,13 @@
  * @help        :: See https://sailsjs.com/docs/concepts/actions
  */
 
+const pkg = require('../../package.json');
+
 module.exports = {
   main: (req, res) => {
     res.ok({
       connection: 'ok',
-      version: sails.config.custom.version
+      version: pkg.version
     });
   }
 };
