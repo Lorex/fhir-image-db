@@ -5,24 +5,22 @@
   "description": "image DB",
   "keywords": [],
   "dependencies": {
-    "async": "2.0.1",
-    "connect-redis": "3.2.0",
-    "grunt": "1.0.1",
-    "lodash": "3.10.1",
-    "rimraf": "^2.6.2",
-    "sails": "^1.0.0-45",
-    "sails-hook-grunt": "^2.2.1",
-    "sails-hook-orm": "^2.0.0-16",
-    "sails-hook-sockets": "^1.4.0",
-    "socket.io-redis": "5.2.0"
+    "express-session": "^1.18.0",
+    "lodash": "^4.17.21",
+    "rimraf": "^6.0.1",
+    "sails": "^1.5.4",
+    "sails-hook-orm": "^4.0.3",
+    "sails-hook-sockets": "^3.0.2",
+    "socket.io-adapter": "^2.5.4"
   },
   "devDependencies": {
-    "eslint": "4.11.0"
+    "eslint": "5.16.0"
   },
   "scripts": {
-    "start": "node app.js",
+    "start": "NODE_ENV=production node app.js",
     "test": "npm run lint && npm run custom-tests && echo 'Done.'",
-    "lint": "node ./node_modules/eslint/bin/eslint . --max-warnings=0 --report-unused-disable-directives && echo '✔  Your code looks good.'",
+    "test:fhir": "node ../tests/test-fhir-proxy.js",
+    "lint": "./node_modules/eslint/bin/eslint.js . --max-warnings=0 --report-unused-disable-directives && echo '✔  Your .js files look good.'",
     "custom-tests": "echo \"(No other custom tests yet.)\" && echo"
   },
   "main": "app.js",
@@ -30,9 +28,9 @@
     "type": "git",
     "url": "git://github.com/anonymous node/sails user/image-db.git"
   },
-  "author": "Lorex@Knight Digital Inc. <ceo@sita.tech>",
+  "author": "Lorex@Sitatech <ceo@sita.tech>",
   "license": "",
   "engines": {
-    "node": "8"
+    "node": "^20.18"
   }
 }

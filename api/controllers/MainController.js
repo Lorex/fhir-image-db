@@ -6,10 +6,10 @@
  */
 
 module.exports = {
-	main: (req, res) => {
-		res.ok({
-			connection: "ok",
-			version: sails.config.custom.version
-		});
-	}
+  main: (req, res) => {
+    res.ok({
+      connection: 'ok',
+      version: sails.config.custom.version
+    });
+  }
 };

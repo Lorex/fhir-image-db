@@ -262,13 +262,13 @@ module.exports = {
     * then uncomment the following lines.  This tells Socket.io about a Redis  *
     * server it can use to help it deliver broadcasted socket messages.        *
     *                                                                          *
-    * > Be sure you have a compatible version of socket.io-redis installed!    *
+    * > Be sure you have a compatible version of @socket.io/redis-adapter installed!    *
     * > (See https://sailsjs.com/config/sockets for the latest version info)   *
     *                                                                          *
     * (https://sailsjs.com/docs/concepts/deployment/scaling)                   *
     *                                                                          *
     ***************************************************************************/
-    // adapter: 'socket.io-redis',
+    // adapter: '@socket.io/redis-adapter',
     // url: 'redis://user:password@bigsquid.redistogo.com:9562/dbname',
     //--------------------------------------------------------------------------
     // /\   OR, to avoid checking it in to version control, you might opt to
