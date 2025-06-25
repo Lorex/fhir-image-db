@@ -5,16 +5,12 @@
   "description": "image DB",
   "keywords": [],
   "dependencies": {
+    "async": "^3.2.6",
     "axios": "^1.10.0",
-    "express-session": "^1.18.0",
     "lodash": "^4.17.21",
-    "rimraf": "^6.0.1",
     "sails": "^1.5.4",
-    "sails-hook-orm": "^4.0.3",
-    "sails-hook-sockets": "^3.0.2",
     "sharp": "^0.34.2",
-    "skipper-memory": "^0.0.3",
-    "socket.io-adapter": "^2.5.4"
+    "skipper": "^0.9.5"
   },
   "devDependencies": {
     "eslint": "5.16.0",

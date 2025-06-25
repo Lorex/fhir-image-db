@@ -71,10 +71,10 @@ module.exports = {
       let metadata;
       try {
         metadata = await sharp(fileBuffer).metadata();
-      } catch (e) {
+      } catch (unusedE) {
         return res.badRequest({ success: false, err: { code: 'E_TYPE', message: '無法識別的圖片格式' } });
       }
-      
+
       const imageType = metadata.format;
       if (!['jpeg', 'png', 'gif', 'webp'].includes(imageType)) {
         return res.badRequest({

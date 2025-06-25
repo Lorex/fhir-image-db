@@ -5,20 +5,20 @@ const assert = require('assert');
 const sinon = require('sinon');
 const axios = require('axios');
 
-describe('ImageController', function() {
+describe('ImageController', () => {
 
   let sandbox;
   let imageDir;
 
-  before(function() {
+  before(() => {
     imageDir = path.resolve(sails.config.appPath, 'assets/images');
   });
 
-  beforeEach(function() {
+  beforeEach(() => {
     sandbox = sinon.createSandbox();
   });
 
-  afterEach(function() {
+  afterEach(() => {
     sandbox.restore();
     const files = fs.readdirSync(imageDir);
     for (const file of files) {
@@ -28,9 +28,9 @@ describe('ImageController', function() {
     }
   });
 
-  describe('POST /upload', function() {
+  describe('POST /upload', () => {
 
-    it('should upload image, create a thumbnail, and create a FHIR DocumentReference', async function() {
+    it('should upload image, create a thumbnail, and create a FHIR DocumentReference', async () => {
       const testImagePath = path.join(__dirname, '../fixtures/test-image.png');
       const fhirId = '12345';
       const patientId = 'patient1';
@@ -64,20 +64,20 @@ describe('ImageController', function() {
     });
   });
 
-  describe('DELETE /delete/:id', function() {
+  describe('DELETE /delete/:id', () => {
 
     const fhirId = 'test-fhir-id';
     const originalFilename = 'test-image.png';
     const thumbFilename = 'test-image_thumb.png';
 
-    beforeEach(function() {
+    beforeEach(() => {
       const testImagePath = path.join(__dirname, '../fixtures', originalFilename);
       // Create dummy original and thumbnail files
       fs.copyFileSync(testImagePath, path.join(imageDir, originalFilename));
       fs.copyFileSync(testImagePath, path.join(imageDir, thumbFilename));
     });
 
-    it('should delete original image, thumbnail, and FHIR resource successfully', async function() {
+    it('should delete original image, thumbnail, and FHIR resource successfully', async () => {
       const mockFhirResponseOnGet = {
         resourceType: 'DocumentReference',
         id: fhirId,
@@ -100,8 +100,8 @@ describe('ImageController', function() {
     });
   });
 
-  describe('DELETE /purge', function() {
-    it('should purge all uploaded images successfully', async function() {
+  describe('DELETE /purge', () => {
+    it('should purge all uploaded images successfully', async () => {
       const testImagePath = path.join(__dirname, '../fixtures/test-image.png');
       const destImagePath = path.join(imageDir, path.basename(testImagePath));
       fs.copyFileSync(testImagePath, destImagePath);

@@ -22,18 +22,18 @@ before(function(done) {
       csrf: false
     }
 
-  }, function(err) {
+  }, (err) => {
     if (err) {
       return done(err);
     }
-    
+
     // Here, after Sails has started up, we can run our tests.
     return done();
   });
 });
 
 // After all tests have finished...
-after(function(done) {
+after((done) => {
   // Lower Sails and exit with the appropriate exit code.
   sails.lower(done);
 });
