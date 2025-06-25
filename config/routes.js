@@ -25,7 +25,7 @@ module.exports.routes = {
 	 ***************************************************************************/
   'GET /': 'MainController.main',
   'POST /upload': 'ImageController.upload',
-  'DELETE /delete/:pid': 'ImageController.delete',
+  'DELETE /delete/:id': 'ImageController.delete',
   'DELETE /purge': 'ImageController.purge'
 
   /***************************************************************************

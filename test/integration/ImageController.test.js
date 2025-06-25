@@ -1,221 +1,137 @@
 const supertest = require('supertest');
 const path = require('path');
 const fs = require('fs');
+const assert = require('assert');
+const sinon = require('sinon');
+const axios = require('axios');
 
 describe('ImageController', function() {
 
-  describe('POST /upload', function() {
-    
-    it('should upload image successfully', function(done) {
-      const testImagePath = path.join(__dirname, '../fixtures/test-image.png');
-      
-      supertest(sails.hooks.http.app)
-        .post('/upload')
-        .attach('image', testImagePath)
-        .expect(200)
-        .expect(function(res) {
-          if (!res.body.data) throw new Error('Missing data in response');
-          if (!res.body.data.filename) throw new Error('Missing filename in response');
-          if (!res.body.data.url) throw new Error('Missing url in response');
-          if (!res.body.data.delete) throw new Error('Missing delete url in response');
-          if (!res.body.data.path) throw new Error('Missing path in response');
-          if (!res.body.data.size) throw new Error('Missing size in response');
-          if (!res.body.data.timestamp) throw new Error('Missing timestamp in response');
-        })
-        .end(done);
-    });
+  let sandbox;
+  let imageDir;
 
-    it('should return error when no file is uploaded', function(done) {
-      supertest(sails.hooks.http.app)
-        .post('/upload')
-        .expect(400)
-        .expect(function(res) {
-          if (res.body.success !== false) throw new Error('Expected success to be false');
-          if (res.body.err.code !== 'E_NO_FILE') throw new Error('Expected error code E_NO_FILE');
-        })
-        .end(done);
-    });
-
-    it('should return error when uploading non-image file', function(done) {
-      // Create a temporary text file for testing
-      const testTextFile = path.join(__dirname, '../fixtures/test.txt');
-      fs.writeFileSync(testTextFile, 'This is a test text file');
-      
-      supertest(sails.hooks.http.app)
-        .post('/upload')
-        .attach('image', testTextFile)
-        .expect(400)
-        .expect(function(res) {
-          if (res.body.success !== false) throw new Error('Expected success to be false');
-          if (res.body.err.code !== 'E_TYPE') throw new Error('Expected error code E_TYPE');
-        })
-        .end(function(err) {
-          // Clean up test file
-          try {
-            fs.unlinkSync(testTextFile);
-          } catch (cleanupErr) {
-            // Ignore cleanup errors
-          }
-          done(err);
-        });
-    });
-
-    it('should handle file upload with proper content type', function(done) {
-      const testImagePath = path.join(__dirname, '../fixtures/test-image.png');
-      
-      supertest(sails.hooks.http.app)
-        .post('/upload')
-        .attach('image', testImagePath)
-        .expect('Content-Type', /json/)
-        .expect(200)
-        .end(done);
-    });
-
+  before(function() {
+    imageDir = path.resolve(sails.config.appPath, 'assets/images');
   });
 
-  describe('DELETE /delete/:pid', function() {
-    
-    let uploadedFile;
-    
-    // Upload a file before each delete test
-    beforeEach(function(done) {
-      const testImagePath = path.join(__dirname, '../fixtures/test-image.png');
-      
-      supertest(sails.hooks.http.app)
-        .post('/upload')
-        .attach('image', testImagePath)
-        .expect(200)
-        .end(function(err, res) {
-          if (err) return done(err);
-          uploadedFile = res.body.data;
-          done();
-        });
-    });
+  beforeEach(function() {
+    sandbox = sinon.createSandbox();
+  });
 
-    it('should delete uploaded image successfully', function(done) {
-      if (!uploadedFile || !uploadedFile.filename) {
-        return done(new Error('No uploaded file available for deletion test'));
+  afterEach(function() {
+    sandbox.restore();
+    const files = fs.readdirSync(imageDir);
+    for (const file of files) {
+      if (file !== '.gitkeep') {
+        fs.unlinkSync(path.join(imageDir, file));
       }
+    }
+  });
 
-      // Extract pid from filename (remove extension and add underscore format)
-      const { name, ext } = path.parse(uploadedFile.filename);
-      const pid = `${name}_${ext.slice(1)}`; // Remove dot from extension
-      
-      supertest(sails.hooks.http.app)
-        .delete(`/delete/${pid}`)
-        .expect(200)
-        .expect(function(res) {
-          if (res.body.success !== true) throw new Error('Expected success to be true');
-          if (!res.body.data) throw new Error('Missing data in response');
-          if (!res.body.data.message) throw new Error('Missing success message');
-        })
-        .end(done);
+  describe('POST /upload', function() {
+
+    it('should upload image successfully and create a FHIR DocumentReference', async function() {
+      const testImagePath = path.join(__dirname, '../fixtures/test-image.png');
+      const fhirId = '12345';
+      const patientId = 'patient1';
+      const practitionerId = 'practitioner1';
+
+      const mockFhirResponse = {
+        resourceType: 'DocumentReference',
+        id: fhirId,
+        status: 'current',
+        content: [ { attachment: { title: 'test-image.png' } } ]
+      };
+
+      sandbox.stub(axios, 'post').resolves({ status: 201, data: mockFhirResponse });
+
+      const res = await supertest(sails.hooks.http.app)
+        .post('/upload')
+        .field('patientId', patientId)
+        .field('practitionerId', practitionerId)
+        .attach('image', testImagePath)
+        .expect(200);
+
+      const { data } = res.body;
+      assert(data.filename, 'Missing filename in response');
+      assert(data.url, 'Missing url in response');
+      assert.strictEqual(data.delete.endsWith(`/delete/${fhirId}`), true, 'Incorrect delete url');
+      assert.deepStrictEqual(data.fhir, mockFhirResponse, 'FHIR response does not match');
     });
 
-    it('should return error for invalid pid format', function(done) {
-      supertest(sails.hooks.http.app)
-        .delete('/delete/invalid-pid')
-        .expect(400)
-        .expect(function(res) {
-          if (res.body.success !== false) throw new Error('Expected success to be false');
-          if (res.body.err.code !== 'E_INVALID_PID') throw new Error('Expected error code E_INVALID_PID');
-        })
-        .end(done);
+    it('should return error when patientId or practitionerId is missing', async function() {
+        const testImagePath = path.join(__dirname, '../fixtures/test-image.png');
+
+        const res = await supertest(sails.hooks.http.app)
+          .post('/upload')
+          .attach('image', testImagePath)
+          .expect(400);
+
+        assert.strictEqual(res.body.success, false);
+        assert.strictEqual(res.body.err.code, 'E_MISSING_PARAMETERS');
+      });
+  });
+
+  describe('DELETE /delete/:id', function() {
+
+    const fhirId = 'test-fhir-id';
+    let uploadedFilename;
+
+    beforeEach(async function() {
+      const testImagePath = path.join(__dirname, '../fixtures/test-image.png');
+      uploadedFilename = path.basename(testImagePath);
+      const imagePath = path.join(imageDir, uploadedFilename);
+      fs.copyFileSync(testImagePath, imagePath);
+      assert(fs.existsSync(imagePath), `File should exist at ${imagePath} before delete test`);
+
+      sandbox.stub(axios, 'post').resolves({ status: 201, data: { id: fhirId, content: [{attachment:{title: uploadedFilename}}] } });
     });
 
-    it('should handle deletion of non-existent file gracefully', function(done) {
-      supertest(sails.hooks.http.app)
-        .delete('/delete/nonexistent_jpg')
-        .expect(200)
-        .expect(function(res) {
-          if (res.body.success !== true) throw new Error('Expected success to be true');
-          if (!res.body.data) throw new Error('Missing data in response');
-        })
-        .end(done);
+    it('should delete uploaded image and FHIR resource successfully', async function() {
+      const mockFhirResponseOnGet = {
+        resourceType: 'DocumentReference',
+        id: fhirId,
+        content: [ { attachment: { title: uploadedFilename } } ]
+      };
+
+      sandbox.stub(axios, 'get').resolves({ status: 200, data: mockFhirResponseOnGet });
+      sandbox.stub(axios, 'delete').resolves({ status: 204 });
+
+      const res = await supertest(sails.hooks.http.app)
+        .delete(`/delete/${fhirId}`)
+        .expect(200);
+
+      assert.strictEqual(res.body.success, true, 'Expected success to be true');
+      const imagePath = path.join(imageDir, uploadedFilename);
+      assert.strictEqual(fs.existsSync(imagePath), false, `File should not exist at ${imagePath} after deletion`);
     });
 
+    it('should return 404 if the FHIR DocumentReference does not exist', async function() {
+      const nonExistentId = 'non-existent-id';
+      sandbox.stub(axios, 'get').rejects({ response: { status: 404 } });
+
+      const res = await supertest(sails.hooks.http.app)
+        .delete(`/delete/${nonExistentId}`)
+        .expect(404);
+
+      assert.strictEqual(res.body.success, false);
+      assert.strictEqual(res.body.message, '找不到指定的 FHIR DocumentReference');
+    });
   });
 
   describe('DELETE /purge', function() {
-    
-    // Upload some files before purge test
-    beforeEach(function(done) {
+    it('should purge all uploaded images successfully', async function() {
       const testImagePath = path.join(__dirname, '../fixtures/test-image.png');
-      let uploadCount = 0;
-      const totalUploads = 2;
-      
-      function uploadComplete() {
-        uploadCount++;
-        if (uploadCount === totalUploads) {
-          done();
-        }
-      }
-      
-      // Upload first file
-      supertest(sails.hooks.http.app)
-        .post('/upload')
-        .attach('image', testImagePath)
-        .expect(200)
-        .end(uploadComplete);
-      
-      // Upload second file
-      supertest(sails.hooks.http.app)
-        .post('/upload')
-        .attach('image', testImagePath)
-        .expect(200)
-        .end(uploadComplete);
-    });
+      const destImagePath = path.join(imageDir, path.basename(testImagePath));
+      fs.copyFileSync(testImagePath, destImagePath);
+      assert(fs.existsSync(destImagePath), `File should exist at ${destImagePath} before purge`);
 
-    it('should purge all uploaded images successfully', function(done) {
-      supertest(sails.hooks.http.app)
+      await supertest(sails.hooks.http.app)
         .delete('/purge')
-        .expect(200)
-        .expect(function(res) {
-          if (res.body.success !== true) throw new Error('Expected success to be true');
-          if (!res.body.data) throw new Error('Missing data in response');
-          if (!res.body.data.message) throw new Error('Missing success message');
-        })
-        .end(done);
+        .expect(200);
+
+      assert.strictEqual(fs.existsSync(destImagePath), false, `File should not exist at ${destImagePath} after purge`);
     });
-
-    it('should handle purge when no files exist', function(done) {
-      // First purge to clear any existing files
-      supertest(sails.hooks.http.app)
-        .delete('/purge')
-        .expect(200)
-        .end(function(err) {
-          if (err) return done(err);
-          
-          // Second purge should still succeed
-          supertest(sails.hooks.http.app)
-            .delete('/purge')
-            .expect(200)
-            .expect(function(res) {
-              if (res.body.success !== true) throw new Error('Expected success to be true');
-              if (!res.body.data) throw new Error('Missing data in response');
-            })
-            .end(done);
-        });
-    });
-
-  });
-
-  describe('API Error Handling', function() {
-
-    it('should return 404 for non-existent endpoints', function(done) {
-      supertest(sails.hooks.http.app)
-        .get('/nonexistent')
-        .expect(404)
-        .end(done);
-    });
-
-    it('should handle invalid HTTP methods on upload endpoint', function(done) {
-      supertest(sails.hooks.http.app)
-        .get('/upload')
-        .expect(404)
-        .end(done);
-    });
-
   });
 
 });

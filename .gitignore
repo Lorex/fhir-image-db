@@ -133,3 +133,4 @@ lib-cov
 *.pid
 
 assets/*
+.nyc_output/*
