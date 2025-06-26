@@ -24,7 +24,7 @@ module.exports = {
    */
   async upload(req, res) {
     try {
-      const { patientId, practitionerId } = req.body;
+      const { patientId, practitionerId, description } = req.body;
 
       // 使用 skipper 的 upload 方法處理檔案上傳
       const uploadedFiles = await new Promise((resolve, reject) => {
@@ -99,7 +99,6 @@ module.exports = {
       const documentReference = {
         resourceType: 'DocumentReference',
         status: 'current',
-        description: 'hah',
         docStatus: 'final',
         type: {
           coding: [
@@ -137,6 +136,12 @@ module.exports = {
 
       if (practitionerId) {
         documentReference.author = [{ reference: `Practitioner/${practitionerId}` }];
+      }
+
+      if (description) {
+        documentReference.description = description;
+      } else {
+        documentReference.description = 'hah';
       }
 
       let fhirResponse = {};
