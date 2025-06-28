@@ -10,7 +10,7 @@
 
 module.exports.custom = {
   apiBaseUrl: 'https://imagedb.fhir.tw', // 本圖床 API 伺服器網址
-  fhirServerUrl: 'https://hapi.fhir.tw/fhir', // FHIR 伺服器網址
+  fhirServerUrl: 'https://twcore.hapi.fhir.tw/fhir', // FHIR 伺服器網址
   /***************************************************************************
 	 *                                                                          *
 	 * Any other custom config this Sails app should use during development.    *
