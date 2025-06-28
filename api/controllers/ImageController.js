@@ -98,6 +98,11 @@ module.exports = {
       // 建立 FHIR DocumentReference
       const documentReference = {
         resourceType: 'DocumentReference',
+        meta: {
+          profile: [
+            'https://twcore.mohw.gov.tw/ig/twcore/StructureDefinition/DocumentReference-twcore'
+          ]
+        },
         status: 'current',
         description: 'hah',
         docStatus: 'final',
