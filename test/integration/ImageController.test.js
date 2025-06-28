@@ -153,6 +153,47 @@ describe('ImageController (圖片控制器)', () => {
       assert.strictEqual(fs.existsSync(path.join(imageDir, originalFilename)), false, 'Original file should be deleted');
       assert.strictEqual(fs.existsSync(path.join(imageDir, thumbFilename)), false, 'Thumbnail file should be deleted');
     });
+
+    it('刪除 DocumentReference 時，應一併更新相關的 ClinicalImpression', async () => {
+      const mockDocRef = {
+        resourceType: 'DocumentReference',
+        id: fhirId,
+        content: [
+          { attachment: { url: `http://localhost/images/${originalFilename}` } },
+          { attachment: { url: `http://localhost/images/${thumbFilename}` } }
+        ]
+      };
+
+      const anotherFhirId = 'another-fhir-id';
+      const mockClinicalImpression = {
+        resourceType: 'ClinicalImpression',
+        id: 'ci123',
+        supportingInfo: [
+          { reference: `DocumentReference/${fhirId}` }, // This one should be deleted
+          { reference: `DocumentReference/${anotherFhirId}` } // This one should remain
+        ]
+      };
+
+      const axiosGetStub = sandbox.stub(axios, 'get');
+      axiosGetStub.withArgs(sinon.match(`/DocumentReference/${fhirId}`)).resolves({ status: 200, data: mockDocRef });
+      axiosGetStub.withArgs(sinon.match('/ClinicalImpression')).resolves({
+        status: 200,
+        data: {
+          entry: [{ resource: mockClinicalImpression }]
+        }
+      });
+      const axiosPutStub = sandbox.stub(axios, 'put').resolves({ status: 200 });
+      sandbox.stub(axios, 'delete').resolves({ status: 204 });
+
+      await supertest(sails.hooks.http.app)
+        .delete(`/delete/${fhirId}`)
+        .expect(200);
+
+      assert(axiosPutStub.calledOnce, 'axios.put should be called once');
+      const updatedClinicalImpression = axiosPutStub.getCall(0).args[1];
+      assert.strictEqual(updatedClinicalImpression.supportingInfo.length, 1, 'supportingInfo should have 1 item left');
+      assert.strictEqual(updatedClinicalImpression.supportingInfo[0].reference, `DocumentReference/${anotherFhirId}`, 'The correct supportingInfo should be kept');
+    });
   });
 
   describe('DELETE /purge (清除所有圖片)', () => {

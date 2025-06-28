@@ -24,7 +24,7 @@ module.exports = {
    */
   async upload(req, res) {
     try {
-      const { patientId, practitionerId, description } = req.body;
+      const { patientId, practitionerId } = req.body;
 
       // 使用 skipper 的 upload 方法處理檔案上傳
       const uploadedFiles = await new Promise((resolve, reject) => {
@@ -99,6 +99,7 @@ module.exports = {
       const documentReference = {
         resourceType: 'DocumentReference',
         status: 'current',
+        description: 'hah',
         docStatus: 'final',
         type: {
           coding: [
@@ -136,12 +137,6 @@ module.exports = {
 
       if (practitionerId) {
         documentReference.author = [{ reference: `Practitioner/${practitionerId}` }];
-      }
-
-      if (description) {
-        documentReference.description = description;
-      } else {
-        documentReference.description = 'hah';
       }
 
       let fhirResponse = {};
@@ -207,7 +202,50 @@ module.exports = {
         return res.serverError('無法從 FHIR 伺服器取得 DocumentReference');
       }
 
-      // 2. 向 FHIR Server 刪除 DocumentReference
+      // 2. 從 FHIR Server 取得有連結到這個 DocumentReference 的 ClinicalImpression
+      let clinicalImpressions = [];
+      try {
+        const response = await axios.get(`${fhirServerUrl}/ClinicalImpression?supporting-info=DocumentReference/${id}`);
+        if (response.data && response.data.entry) {
+          clinicalImpressions = response.data.entry.map(entry => entry.resource);
+        }
+      } catch (err) {
+        sails.log.error('Failed to fetch ClinicalImpressions:', err.response ? err.response.data : err.message);
+        // 如果取得失敗，仍繼續執行刪除流程
+      }
+
+      // 3. 更新每個 ClinicalImpression，移除 supportingInfo 中的 DocumentReference 參考
+      for (const clinicalImpression of clinicalImpressions) {
+        if (clinicalImpression.supportingInfo && Array.isArray(clinicalImpression.supportingInfo)) {
+          // 過濾掉要刪除的 DocumentReference
+          const updatedSupportingInfo = clinicalImpression.supportingInfo.filter(
+            info => info.reference !== `DocumentReference/${id}`
+          );
+
+          // 如果 supportingInfo 有變更，更新 ClinicalImpression
+          if (updatedSupportingInfo.length !== clinicalImpression.supportingInfo.length) {
+            clinicalImpression.supportingInfo = updatedSupportingInfo;
+
+            try {
+              await axios.put(
+                `${fhirServerUrl}/ClinicalImpression/${clinicalImpression.id}`,
+                clinicalImpression,
+                {
+                  headers: {
+                    'Content-Type': 'application/fhir+json'
+                  }
+                }
+              );
+              sails.log.info(`Updated ClinicalImpression ${clinicalImpression.id} to remove DocumentReference/${id}`);
+            } catch (updateErr) {
+              sails.log.error(`Failed to update ClinicalImpression ${clinicalImpression.id}:`, updateErr.response ? updateErr.response.data : updateErr.message);
+              // 更新失敗不中斷流程
+            }
+          }
+        }
+      }
+
+      // 4. 向 FHIR Server 刪除 DocumentReference
       try {
         await axios.delete(`${fhirServerUrl}/DocumentReference/${id}`);
       } catch (err) {
@@ -215,7 +253,7 @@ module.exports = {
         // 即使刪除失敗，我們還是繼續嘗試刪除本地檔案
       }
 
-      // 3. 刪除本地圖片檔案 (原始圖 + 縮圖)
+      // 5. 刪除本地圖片檔案 (原始圖 + 縮圖)
       try {
         for (const content of docRef.content) {
           const fileUrl = content.attachment.url;
